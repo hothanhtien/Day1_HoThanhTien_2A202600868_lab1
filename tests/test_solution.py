@@ -17,6 +17,9 @@ from unittest.mock import MagicMock, patch
 DAY_DIR = Path(__file__).parent.parent
 SOLUTION_DIR = DAY_DIR / "solution"
 
+# Safe module name without hyphens for patch()
+_safe_name = DAY_DIR.name.replace("-", "_")
+
 
 def _load(path: Path, unique_name: str):
     spec = importlib.util.spec_from_file_location(unique_name, str(path))
@@ -27,12 +30,12 @@ def _load(path: Path, unique_name: str):
 
 
 if (SOLUTION_DIR / "solution.py").exists():
-    _m = _load(SOLUTION_DIR / "solution.py", f"{DAY_DIR.name}.solution")
+    _m = _load(SOLUTION_DIR / "solution.py", f"{_safe_name}.solution")
 elif (SOLUTION_DIR / "app.py").exists():
-    _m = _load(SOLUTION_DIR / "app.py", f"{DAY_DIR.name}.solution")
+    _m = _load(SOLUTION_DIR / "app.py", f"{_safe_name}.solution")
 else:
     src = "template.py" if (DAY_DIR / "template.py").exists() else "app.py"
-    _m = _load(DAY_DIR / src, f"{DAY_DIR.name}.template")
+    _m = _load(DAY_DIR / src, f"{_safe_name}.template")
 
 call_openai = getattr(_m, 'call_openai')
 call_openai_mini = getattr(_m, 'call_openai_mini')
@@ -128,9 +131,9 @@ class TestCallOpenAIMini(unittest.TestCase):
 class TestCompareModels(unittest.TestCase):
 
     def test_returns_dict_with_required_keys(self):
-        with patch(f"{compare_models.__module__}.call_openai", return_value=("GPT-4o answer", 0.5)), \
-             patch(f"{compare_models.__module__}.call_openai_mini", return_value=("Mini answer", 0.3)):
-            result = compare_models("Test prompt")
+        with patch.object(_m, 'call_openai', return_value=("GPT-4o answer", 0.5)), \
+             patch.object(_m, 'call_openai_mini', return_value=("Mini answer", 0.3)):
+            result = _m.compare_models("Test prompt")
 
         required_keys = {
             "gpt4o_response",
@@ -144,17 +147,17 @@ class TestCompareModels(unittest.TestCase):
             self.assertIn(key, result, f"Missing key: {key}")
 
     def test_latency_values_are_positive(self):
-        with patch(f"{compare_models.__module__}.call_openai", return_value=("GPT-4o answer", 0.5)), \
-             patch(f"{compare_models.__module__}.call_openai_mini", return_value=("Mini answer", 0.3)):
-            result = compare_models("Test prompt")
+        with patch.object(_m, 'call_openai', return_value=("GPT-4o answer", 0.5)), \
+             patch.object(_m, 'call_openai_mini', return_value=("Mini answer", 0.3)):
+            result = _m.compare_models("Test prompt")
 
         self.assertGreater(result["gpt4o_latency"], 0)
         self.assertGreater(result["mini_latency"], 0)
 
     def test_responses_are_non_empty_strings(self):
-        with patch(f"{compare_models.__module__}.call_openai", return_value=("GPT-4o answer", 0.5)), \
-             patch(f"{compare_models.__module__}.call_openai_mini", return_value=("Mini answer", 0.3)):
-            result = compare_models("Test prompt")
+        with patch.object(_m, 'call_openai', return_value=("GPT-4o answer", 0.5)), \
+             patch.object(_m, 'call_openai_mini', return_value=("Mini answer", 0.3)):
+            result = _m.compare_models("Test prompt")
 
         self.assertIsInstance(result["gpt4o_response"], str)
         self.assertGreater(len(result["gpt4o_response"]), 0)
@@ -162,9 +165,9 @@ class TestCompareModels(unittest.TestCase):
         self.assertGreater(len(result["mini_response"]), 0)
 
     def test_cost_estimate_is_non_negative(self):
-        with patch(f"{compare_models.__module__}.call_openai", return_value=("word " * 100, 0.5)), \
-             patch(f"{compare_models.__module__}.call_openai_mini", return_value=("word " * 100, 0.3)):
-            result = compare_models("Test prompt")
+        with patch.object(_m, 'call_openai', return_value=("word " * 100, 0.5)), \
+             patch.object(_m, 'call_openai_mini', return_value=("word " * 100, 0.3)):
+            result = _m.compare_models("Test prompt")
 
         self.assertGreaterEqual(result["gpt4o_cost_estimate"], 0)
 
